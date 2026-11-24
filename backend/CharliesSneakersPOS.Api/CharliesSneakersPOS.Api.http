@@ -1,0 +1,32 @@
+@CharliesSneakersPOS.Api_HostAddress = http://localhost:5274
+@cashSessionId = 00000000-0000-0000-0000-000000000000
+
+### Abrir caja (HU-09)
+POST {{CharliesSneakersPOS.Api_HostAddress}}/api/cash-sessions
+Content-Type: application/json
+
+{ "openingAmount": 50000 }
+
+### Caja abierta actual
+GET {{CharliesSneakersPOS.Api_HostAddress}}/api/cash-sessions/current
+Accept: application/json
+
+### Consultar sesion por id
+GET {{CharliesSneakersPOS.Api_HostAddress}}/api/cash-sessions/{{cashSessionId}}
+Accept: application/json
+
+### Cerrar caja (HU-10)
+POST {{CharliesSneakersPOS.Api_HostAddress}}/api/cash-sessions/{{cashSessionId}}/close
+Content-Type: application/json
+
+{ "countedAmount": 80000 }
+
+### Totales en vivo sin persistir (HU-03 / HU-05)
+@productVariantId = 00000000-0000-0000-0000-000000000000
+POST {{CharliesSneakersPOS.Api_HostAddress}}/api/sales/preview
+Content-Type: application/json
+
+{
+  "items": [ { "productVariantId": "{{productVariantId}}", "quantity": 1 } ],
+  "payments": [ { "method": "Cash", "amount": 20000 } ]
+}

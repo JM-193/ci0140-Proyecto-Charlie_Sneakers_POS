@@ -1,0 +1,60 @@
+{
+  "name": "charlies-sneakers-pos-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "run-p type-check \"build-only {@}\" --",
+    "build-only": "vite build",
+    "type-check": "vue-tsc --build",
+    "preview": "vite preview",
+    "test:unit": "vitest",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "lint": "run-s lint:oxlint lint:eslint",
+    "lint:oxlint": "oxlint . --fix",
+    "lint:eslint": "eslint . --fix --cache",
+    "lint:ci": "oxlint . && eslint . --max-warnings=0",
+    "format": "prettier --write src/",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "pinia": "^3.0.4",
+    "vue": "^3.5.46",
+    "vue-router": "^5.0.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@tsconfig/node24": "^24.0.6",
+    "@types/jsdom": "^28.0.0",
+    "@types/node": "^24.12.0",
+    "@vitejs/plugin-vue": "^6.0.11",
+    "@vitest/coverage-v8": "^5.1.1",
+    "@vitest/eslint-plugin": "^1.6.28",
+    "@vue/eslint-config-typescript": "^14.9.0",
+    "@vue/test-utils": "^2.6.0",
+    "@vue/tsconfig": "^0.9.1",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-oxlint": "~1.95.0",
+    "eslint-plugin-vue": "~10.12.1",
+    "jiti": "^2.7.0",
+    "jsdom": "^28.1.0",
+    "npm-run-all2": "^8.0.4",
+    "oxlint": "~1.95.0",
+    "prettier": "3.10.1",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.0",
+    "vitest": "^5.1.1",
+    "vue-tsc": "^3.3.14"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "overrides": {
+    "js-beautify": {
+      "glob": "^14.0.6",
+      "editorconfig": "^4.0.1"
+    }
+  }
+}

@@ -1,16 +1,19 @@
 name: CI
 
-# Estructura esperada del repositorio (igual que el proyecto base seg_fault):
-#   backend/Backend.Api.csproj        -> API en C# (.NET 10)
-#   tests/Backend.Tests/*.csproj      -> pruebas xUnit + coverlet
-#   package.json, src/                -> frontend Vue + TypeScript (npm)
-# Cada parte se salta sola mientras todavía no exista en el repo.
+# Estructura del repositorio:
+#   CharliesSneakersPOS.slnx                      -> solución .NET 10
+#   backend/CharliesSneakersPOS.Api               -> API (ASP.NET Core)
+#   backend/CharliesSneakersPOS.Domain            -> lógica de negocio (se mide cobertura)
+#   backend/CharliesSneakersPOS.Infrastructure    -> acceso a datos
+#   backend/CharliesSneakersPOS.Tests             -> pruebas xUnit + coverlet
+#   package.json en la raíz o en frontend/        -> frontend Vue + TypeScript (npm)
+# El frontend se salta solo mientras todavía no exista en el repo.
 
 on:
   push:
-    branches: ['main', 'feature/**']
+    branches: ['main', 'dev', 'feature/**']
   pull_request:
-    branches: ['main']
+    branches: ['main', 'dev']
   workflow_dispatch:
 
 concurrency:
@@ -25,45 +28,36 @@ jobs:
     name: Backend (build, Roslyn, tests, coverage)
     runs-on: ubuntu-latest
     env:
-      BACKEND_PROJECT: backend/Backend.Api.csproj
-      TEST_PROJECT: tests/Backend.Tests/Backend.Tests.csproj
-      RUNSETTINGS: tests/Backend.Tests/coverage.runsettings
-      # Umbral de cobertura de líneas. Se cambia sin editar este archivo creando
+      SOLUTION: CharliesSneakersPOS.slnx
+      RUNSETTINGS: backend/CharliesSneakersPOS.Tests/coverage.runsettings
+      # Umbral de cobertura de líneas. Se cambia sin editar este archivo con
       # la variable de repositorio MIN_COVERAGE (Settings > Secrets and variables > Actions).
       MIN_COVERAGE: ${{ vars.MIN_COVERAGE || '90' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Detect backend and tests
-        id: detect
-        run: |
-          if [ -f "$BACKEND_PROJECT" ]; then echo "backend=true" >> "$GITHUB_OUTPUT"
-          else echo "backend=false" >> "$GITHUB_OUTPUT"; echo "::notice::No existe $BACKEND_PROJECT, se omite el backend."; fi
-          if [ -f "$BACKEND_PROJECT" ] && [ -f "$TEST_PROJECT" ]; then echo "tests=true" >> "$GITHUB_OUTPUT"
-          else echo "tests=false" >> "$GITHUB_OUTPUT"; echo "::notice::No hay proyecto de pruebas, se omiten pruebas y cobertura."; fi
-
       - name: Set up .NET
-        if: steps.detect.outputs.backend == 'true'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
-      - name: Build backend (Roslyn / .NET Code Analysis)
-        if: steps.detect.outputs.backend == 'true'
-        run: dotnet build $BACKEND_PROJECT -c Release
+      - name: Restore
+        run: dotnet restore $SOLUTION
+
+      - name: Build (Roslyn / .NET Code Analysis)
+        run: dotnet build $SOLUTION --no-restore -c Release
 
       - name: Test + coverage
-        if: steps.detect.outputs.tests == 'true'
         run: >
-          dotnet test $TEST_PROJECT -c Release
+          dotnet test $SOLUTION --no-build -c Release
           --settings $RUNSETTINGS
           --collect:"XPlat Code Coverage"
           --results-directory TestResults
           --logger "trx;LogFileName=results.trx"
 
       - name: Coverage report
-        if: steps.detect.outputs.tests == 'true' && (success() || failure())
+        if: success() || failure()
         run: |
           dotnet tool install -g dotnet-reportgenerator-globaltool
           reportgenerator \
@@ -73,17 +67,19 @@ jobs:
           cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Roslyn findings summary (M5.1 / M5.2)
-        if: steps.detect.outputs.backend == 'true' && (success() || failure())
+        if: success() || failure()
         run: |
-          SARIF=analysis/Backend.Api.sarif
-          if [ ! -f "$SARIF" ]; then echo "No se generó $SARIF"; exit 0; fi
-          TOTAL=$(jq '[.runs[].results[]?] | length' "$SARIF")
-          ERRORS=$(jq '[.runs[].results[]? | select(.level=="error")] | length' "$SARIF")
-          CA1502=$(jq '[.runs[].results[]? | select(.ruleId=="CA1502")] | length' "$SARIF")
-          LOC=$(find backend -name '*.cs' -not -path '*/bin/*' -not -path '*/obj/*' -exec cat {} + | grep -cv '^\s*$')
+          # Se consideran los proyectos de producción (no el de pruebas)
+          FILES=$(ls analysis/*.sarif 2>/dev/null | grep -v '\.Tests\.sarif$' || true)
+          if [ -z "$FILES" ]; then echo "No se generaron archivos SARIF"; exit 0; fi
+          ALL=$(jq -s '[.[].runs[].results[]?]' $FILES)
+          TOTAL=$(echo "$ALL" | jq 'length')
+          ERRORS=$(echo "$ALL" | jq '[.[] | select(.level=="error")] | length')
+          CA1502=$(echo "$ALL" | jq '[.[] | select(.ruleId=="CA1502")] | length')
+          LOC=$(find backend -name '*.cs' -not -path '*/bin/*' -not -path '*/obj/*' -not -path '*Tests*' -exec cat {} + | grep -cv '^\s*$')
           PER_KLOC=$(awk -v w="$TOTAL" -v l="$LOC" 'BEGIN{printf "%.2f", (l>0? w*1000/l : 0)}')
           {
-            echo "## Roslyn / .NET Code Analysis (backend)"
+            echo "## Roslyn / .NET Code Analysis (backend, sin pruebas)"
             echo ""
             echo "| Indicador | Valor |"
             echo "|---|---|"
@@ -97,12 +93,12 @@ jobs:
             echo ""
             echo "| Regla | Cantidad |"
             echo "|---|---|"
-            jq -r '[.runs[].results[]?.ruleId] | group_by(.) | map({r: .[0], n: length})
-                   | sort_by(-.n) | .[:15][] | "| \(.r) | \(.n) |"' "$SARIF"
+            echo "$ALL" | jq -r '[.[].ruleId] | group_by(.) | map({r: .[0], n: length})
+                   | sort_by(-.n) | .[:15][] | "| \(.r) | \(.n) |"'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload reports
-        if: steps.detect.outputs.backend == 'true' && (success() || failure())
+        if: success() || failure()
         uses: actions/upload-artifact@v4
         with:
           name: backend-reports
@@ -113,13 +109,101 @@ jobs:
           if-no-files-found: ignore
 
       - name: Enforce line coverage >= MIN_COVERAGE
-        if: steps.detect.outputs.tests == 'true'
         run: |
           LINE=$(grep -oP 'Line coverage: \K[0-9.]+' coverage-report/Summary.txt)
           BRANCH=$(grep -oP 'Branch coverage: \K[0-9.]+' coverage-report/Summary.txt || echo "n/a")
           echo "Cobertura de líneas: ${LINE}% | ramas: ${BRANCH}% | mínimo: ${MIN_COVERAGE}%"
           awk -v c="$LINE" -v m="$MIN_COVERAGE" 'BEGIN{exit !(c>=m)}' \
             || { echo "::error::Cobertura de líneas ${LINE}% es menor que ${MIN_COVERAGE}%"; exit 1; }
+
+  # ---------------------------------------------------------------------------
+  # Pruebas de integración contra SQL Server real (Docker). Sustituye a LocalDB,
+  # que no existe en ubuntu-latest. Cada prueba crea y borra su base temporal.
+  # Requiere el secret MSSQL_SA_PASSWORD (Settings > Secrets and variables >
+  # Actions): mínimo 8 caracteres con mayúsculas, minúsculas, números y algún
+  # símbolo; sin espacios, comillas ni ';'.
+  # ---------------------------------------------------------------------------
+  integration:
+    name: Backend integration (SQL Server)
+    runs-on: ubuntu-latest
+    env:
+      INTEGRATION_PROJECT: backend/CharliesSneakersPOS.IntegrationTests/CharliesSneakersPOS.IntegrationTests.csproj
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+        ports:
+          - 1433:1433
+        # Sin health check en options: la espera se hace en el paso
+        # "Wait for SQL Server", que muestra el error real si no responde.
+    steps:
+      - name: Check SQL Server secret
+        env:
+          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+        run: |
+          if [ -z "$MSSQL_SA_PASSWORD" ]; then
+            echo "::error::Falta el secret MSSQL_SA_PASSWORD para las pruebas de integración."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore $INTEGRATION_PROJECT
+
+      - name: Build
+        run: dotnet build $INTEGRATION_PROJECT --no-restore -c Release -p:RoslynSarif=false
+
+      # La contraseña va en SQLCMDPASSWORD (variable de entorno), no en la línea
+      # de comandos, para que ningún carácter especial rompa el comando.
+      - name: Wait for SQL Server
+        env:
+          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+          MSSQL_CONTAINER: ${{ job.services.mssql.id }}
+        run: |
+          SQLCMD=$(docker exec "$MSSQL_CONTAINER" sh -c \
+            'for p in /opt/mssql-tools18/bin/sqlcmd /opt/mssql-tools/bin/sqlcmd; do [ -x "$p" ] && echo "$p" && break; done')
+          if [ -z "$SQLCMD" ]; then
+            echo "::error::No se encontró sqlcmd dentro de la imagen de SQL Server."
+            exit 1
+          fi
+          for attempt in $(seq 1 30); do
+            if docker exec -e SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" "$MSSQL_CONTAINER" \
+                "$SQLCMD" -C -S localhost -U sa -Q "SELECT 1" -b > sqlcmd.log 2>&1; then
+              echo "SQL Server listo (intento $attempt)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "--- Salida de sqlcmd ---"; cat sqlcmd.log
+          echo "--- Últimas líneas del log de SQL Server ---"; docker logs --tail 30 "$MSSQL_CONTAINER"
+          echo "::error::SQL Server no respondió a tiempo."
+          exit 1
+
+      - name: Integration tests (SQL Server)
+        env:
+          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+        run: |
+          export TEST_SQL_CONNECTION="Server=localhost,1433;User ID=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True"
+          dotnet test $INTEGRATION_PROJECT --no-build -c Release \
+            --results-directory TestResults \
+            --logger "trx;LogFileName=integration.trx"
+
+      - name: Upload integration results
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-reports
+          path: TestResults/**/*.trx
+          if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
   # Frontend Vue + TypeScript: lint, type-check/build y pruebas
@@ -134,28 +218,34 @@ jobs:
       - name: Detect frontend
         id: detect
         run: |
-          if [ -f package.json ]; then echo "exists=true" >> "$GITHUB_OUTPUT"
-          else echo "exists=false" >> "$GITHUB_OUTPUT"; echo "::notice::No existe package.json, se omite el frontend."; fi
+          if [ -f frontend/package.json ]; then echo "dir=frontend" >> "$GITHUB_OUTPUT"
+          elif [ -f package.json ]; then echo "dir=." >> "$GITHUB_OUTPUT"
+          else echo "dir=" >> "$GITHUB_OUTPUT"; echo "::notice::No existe package.json, se omite el frontend."; fi
 
       - name: Set up Node
-        if: steps.detect.outputs.exists == 'true'
+        if: steps.detect.outputs.dir != ''
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: ${{ steps.detect.outputs.dir }}/package-lock.json
 
       - name: Install dependencies
-        if: steps.detect.outputs.exists == 'true'
-        run: npm ci
+        if: steps.detect.outputs.dir != ''
+        working-directory: ${{ steps.detect.outputs.dir }}
+        run: npm ci --ignore-scripts
 
       - name: Lint (oxlint + ESLint)
-        if: steps.detect.outputs.exists == 'true'
+        if: steps.detect.outputs.dir != ''
+        working-directory: ${{ steps.detect.outputs.dir }}
         run: npx oxlint . && npx eslint . --max-warnings=0
 
       - name: Type-check + build
-        if: steps.detect.outputs.exists == 'true'
+        if: steps.detect.outputs.dir != ''
+        working-directory: ${{ steps.detect.outputs.dir }}
         run: npm run build
 
       - name: Unit tests
-        if: steps.detect.outputs.exists == 'true'
+        if: steps.detect.outputs.dir != ''
+        working-directory: ${{ steps.detect.outputs.dir }}
         run: npx vitest run --passWithNoTests

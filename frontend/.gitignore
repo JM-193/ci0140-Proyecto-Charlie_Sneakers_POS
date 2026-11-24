@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+coverage
+*.local
+*.tsbuildinfo
+.eslintcache
+playwright-report
+test-results
+*:Zone.Identifier

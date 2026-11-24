@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/CharliesSneakersPOS.Api/CharliesSneakersPOS.Api.csproj" />
+    <Project Path="backend/CharliesSneakersPOS.Domain/CharliesSneakersPOS.Domain.csproj" />
+    <Project Path="backend/CharliesSneakersPOS.Infrastructure/CharliesSneakersPOS.Infrastructure.csproj" />
+    <Project Path="backend/CharliesSneakersPOS.Tests/CharliesSneakersPOS.Tests.csproj" />
+  </Folder>
+</Solution>
