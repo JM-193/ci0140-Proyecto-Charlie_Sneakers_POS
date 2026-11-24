@@ -1,0 +1,33 @@
+<Project>
+  <!--
+    Configuración común para todos los proyectos .NET del repositorio
+    (backend/Backend.Api.csproj y tests/Backend.Tests).
+
+    Herramienta de análisis estático #2: Roslyn / .NET Code Analysis.
+    Los diagnósticos aparecen como warnings en cada `dotnet build` y además
+    se exportan en formato SARIF a analysis/<Proyecto>.sarif para poder
+    compararlos con los hallazgos de SonarQube.
+  -->
+  <PropertyGroup>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Se desactiva con -p:RoslynSarif=false (lo usa el workflow de SonarQube,
+       porque el scanner configura su propio ErrorLog). -->
+  <PropertyGroup Condition="'$(RoslynSarif)' != 'false'">
+    <ErrorLog>$(MSBuildThisFileDirectory)analysis/$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)CodeAnalysis.globalconfig" />
+    <!-- Umbral de complejidad ciclomática usado por la regla CA1502 (métrica M5.1). -->
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)CodeMetricsConfig.txt" />
+  </ItemGroup>
+
+  <Target Name="CreateAnalysisFolder" BeforeTargets="CoreCompile" Condition="'$(RoslynSarif)' != 'false'">
+    <MakeDir Directories="$(MSBuildThisFileDirectory)analysis" />
+  </Target>
+</Project>

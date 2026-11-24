@@ -168,3 +168,14 @@ vite.config.ts.timestamp-*
 
 # Coverage
 **/coverage/
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Reportes generados por pruebas y análisis estático
+analysis/
+TestResults/
+coverage-report/
+.sonarqube/

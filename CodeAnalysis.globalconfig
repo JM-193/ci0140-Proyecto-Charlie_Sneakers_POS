@@ -1,0 +1,5 @@
+is_global = true
+
+# Reglas de Roslyn / .NET Code Analysis adicionales al nivel "latest-recommended".
+# M5.1: reportar métodos con complejidad ciclomática > 10 (umbral en CodeMetricsConfig.txt)
+dotnet_diagnostic.CA1502.severity = warning

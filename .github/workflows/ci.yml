@@ -1,0 +1,161 @@
+name: CI
+
+# Estructura esperada del repositorio (igual que el proyecto base seg_fault):
+#   backend/Backend.Api.csproj        -> API en C# (.NET 10)
+#   tests/Backend.Tests/*.csproj      -> pruebas xUnit + coverlet
+#   package.json, src/                -> frontend Vue + TypeScript (npm)
+# Cada parte se salta sola mientras todavía no exista en el repo.
+
+on:
+  push:
+    branches: ['main', 'feature/**']
+  pull_request:
+    branches: ['main']
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Backend C#: compilación con Roslyn, pruebas y cobertura (M5.1, M5.2, M5.3)
+  # ---------------------------------------------------------------------------
+  backend:
+    name: Backend (build, Roslyn, tests, coverage)
+    runs-on: ubuntu-latest
+    env:
+      BACKEND_PROJECT: backend/Backend.Api.csproj
+      TEST_PROJECT: tests/Backend.Tests/Backend.Tests.csproj
+      RUNSETTINGS: tests/Backend.Tests/coverage.runsettings
+      # Umbral de cobertura de líneas. Se cambia sin editar este archivo creando
+      # la variable de repositorio MIN_COVERAGE (Settings > Secrets and variables > Actions).
+      MIN_COVERAGE: ${{ vars.MIN_COVERAGE || '90' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect backend and tests
+        id: detect
+        run: |
+          if [ -f "$BACKEND_PROJECT" ]; then echo "backend=true" >> "$GITHUB_OUTPUT"
+          else echo "backend=false" >> "$GITHUB_OUTPUT"; echo "::notice::No existe $BACKEND_PROJECT, se omite el backend."; fi
+          if [ -f "$BACKEND_PROJECT" ] && [ -f "$TEST_PROJECT" ]; then echo "tests=true" >> "$GITHUB_OUTPUT"
+          else echo "tests=false" >> "$GITHUB_OUTPUT"; echo "::notice::No hay proyecto de pruebas, se omiten pruebas y cobertura."; fi
+
+      - name: Set up .NET
+        if: steps.detect.outputs.backend == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build backend (Roslyn / .NET Code Analysis)
+        if: steps.detect.outputs.backend == 'true'
+        run: dotnet build $BACKEND_PROJECT -c Release
+
+      - name: Test + coverage
+        if: steps.detect.outputs.tests == 'true'
+        run: >
+          dotnet test $TEST_PROJECT -c Release
+          --settings $RUNSETTINGS
+          --collect:"XPlat Code Coverage"
+          --results-directory TestResults
+          --logger "trx;LogFileName=results.trx"
+
+      - name: Coverage report
+        if: steps.detect.outputs.tests == 'true' && (success() || failure())
+        run: |
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          reportgenerator \
+            -reports:"TestResults/**/coverage.cobertura.xml" \
+            -targetdir:coverage-report \
+            -reporttypes:"Html;TextSummary;MarkdownSummaryGithub"
+          cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Roslyn findings summary (M5.1 / M5.2)
+        if: steps.detect.outputs.backend == 'true' && (success() || failure())
+        run: |
+          SARIF=analysis/Backend.Api.sarif
+          if [ ! -f "$SARIF" ]; then echo "No se generó $SARIF"; exit 0; fi
+          TOTAL=$(jq '[.runs[].results[]?] | length' "$SARIF")
+          ERRORS=$(jq '[.runs[].results[]? | select(.level=="error")] | length' "$SARIF")
+          CA1502=$(jq '[.runs[].results[]? | select(.ruleId=="CA1502")] | length' "$SARIF")
+          LOC=$(find backend -name '*.cs' -not -path '*/bin/*' -not -path '*/obj/*' -exec cat {} + | grep -cv '^\s*$')
+          PER_KLOC=$(awk -v w="$TOTAL" -v l="$LOC" 'BEGIN{printf "%.2f", (l>0? w*1000/l : 0)}')
+          {
+            echo "## Roslyn / .NET Code Analysis (backend)"
+            echo ""
+            echo "| Indicador | Valor |"
+            echo "|---|---|"
+            echo "| Diagnósticos totales | $TOTAL |"
+            echo "| Errores | $ERRORS |"
+            echo "| Líneas de código C# (sin vacías) | $LOC |"
+            echo "| Diagnósticos por 1000 líneas (M5.2) | $PER_KLOC |"
+            echo "| Métodos con complejidad > 10 (CA1502, M5.1) | $CA1502 |"
+            echo ""
+            echo "### Reglas más frecuentes"
+            echo ""
+            echo "| Regla | Cantidad |"
+            echo "|---|---|"
+            jq -r '[.runs[].results[]?.ruleId] | group_by(.) | map({r: .[0], n: length})
+                   | sort_by(-.n) | .[:15][] | "| \(.r) | \(.n) |"' "$SARIF"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reports
+        if: steps.detect.outputs.backend == 'true' && (success() || failure())
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-reports
+          path: |
+            coverage-report/
+            TestResults/**/*.trx
+            analysis/*.sarif
+          if-no-files-found: ignore
+
+      - name: Enforce line coverage >= MIN_COVERAGE
+        if: steps.detect.outputs.tests == 'true'
+        run: |
+          LINE=$(grep -oP 'Line coverage: \K[0-9.]+' coverage-report/Summary.txt)
+          BRANCH=$(grep -oP 'Branch coverage: \K[0-9.]+' coverage-report/Summary.txt || echo "n/a")
+          echo "Cobertura de líneas: ${LINE}% | ramas: ${BRANCH}% | mínimo: ${MIN_COVERAGE}%"
+          awk -v c="$LINE" -v m="$MIN_COVERAGE" 'BEGIN{exit !(c>=m)}' \
+            || { echo "::error::Cobertura de líneas ${LINE}% es menor que ${MIN_COVERAGE}%"; exit 1; }
+
+  # ---------------------------------------------------------------------------
+  # Frontend Vue + TypeScript: lint, type-check/build y pruebas
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: Frontend (lint, build, tests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect frontend
+        id: detect
+        run: |
+          if [ -f package.json ]; then echo "exists=true" >> "$GITHUB_OUTPUT"
+          else echo "exists=false" >> "$GITHUB_OUTPUT"; echo "::notice::No existe package.json, se omite el frontend."; fi
+
+      - name: Set up Node
+        if: steps.detect.outputs.exists == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.detect.outputs.exists == 'true'
+        run: npm ci
+
+      - name: Lint (oxlint + ESLint)
+        if: steps.detect.outputs.exists == 'true'
+        run: npx oxlint . && npx eslint . --max-warnings=0
+
+      - name: Type-check + build
+        if: steps.detect.outputs.exists == 'true'
+        run: npm run build
+
+      - name: Unit tests
+        if: steps.detect.outputs.exists == 'true'
+        run: npx vitest run --passWithNoTests
