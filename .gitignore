@@ -155,3 +155,16 @@ vite.config.ts.timestamp-*
 .nx/cache
 .nx/workspace-data
 .nx/migrate-runs
+
+# .NET
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Reportes generados por pruebas y análisis estático
+analysis/
+TestResults/
+coverage-report/
+.sonarqube/

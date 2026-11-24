@@ -1,0 +1,121 @@
+name: SonarQube
+
+# Herramienta de análisis estático #1: SonarQube Cloud.
+# Requiere en el repositorio (Settings > Secrets and variables > Actions):
+#   - Secret   SONAR_TOKEN        -> token generado en SonarQube Cloud
+#   - Variable SONAR_PROJECT_KEY  -> Project Key que muestra SonarQube Cloud
+#   - Variable SONAR_ORGANIZATION -> Organization Key de SonarQube Cloud
+# Además, desactivar "Automatic Analysis" en SonarQube Cloud
+# (Administration > Analysis Method).
+#
+# sonar.cs.roslyn.ignoreIssues=true: Sonar muestra solo SUS reglas, para que la
+# comparación con Roslyn (workflow CI) no mezcle hallazgos de ambas herramientas.
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+jobs:
+  sonar:
+    name: Build and analyze
+    runs-on: ubuntu-latest
+    env:
+      BACKEND_PROJECT: backend/Backend.Api.csproj
+      TEST_PROJECT: tests/Backend.Tests/Backend.Tests.csproj
+      RUNSETTINGS: tests/Backend.Tests/coverage.runsettings
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # historial completo para que Sonar asigne bien los hallazgos
+
+      - name: Detect code
+        id: detect
+        run: |
+          if [ -f "$BACKEND_PROJECT" ]; then echo "backend=true" >> "$GITHUB_OUTPUT"
+          else echo "backend=false" >> "$GITHUB_OUTPUT"; echo "::notice::No existe $BACKEND_PROJECT todavía, se omite el análisis."; fi
+          if [ -f "$TEST_PROJECT" ]; then echo "tests=true" >> "$GITHUB_OUTPUT"; else echo "tests=false" >> "$GITHUB_OUTPUT"; fi
+          if [ -f package.json ]; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; fi
+          SOURCES="backend"; [ -d src ] && SOURCES="backend,src"
+          echo "sources=$SOURCES" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 17
+        if: steps.detect.outputs.backend == 'true'
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'zulu'
+
+      - name: Set up .NET
+        if: steps.detect.outputs.backend == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Set up Node
+        if: steps.detect.outputs.backend == 'true' && steps.detect.outputs.frontend == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Cache SonarQube Cloud packages
+        if: steps.detect.outputs.backend == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Install SonarScanner for .NET
+        if: steps.detect.outputs.backend == 'true'
+        run: dotnet tool install --global dotnet-sonarscanner
+
+      - name: Sonar begin
+        if: steps.detect.outputs.backend == 'true'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: >
+          dotnet sonarscanner begin
+          /k:"${{ vars.SONAR_PROJECT_KEY }}"
+          /o:"${{ vars.SONAR_ORGANIZATION }}"
+          /d:sonar.host.url="https://sonarcloud.io"
+          /d:sonar.token="$SONAR_TOKEN"
+          /d:sonar.sources="${{ steps.detect.outputs.sources }}"
+          /d:sonar.tests="tests"
+          /d:sonar.exclusions="**/bin/**,**/obj/**,**/node_modules/**,**/dist/**,**/coverage/**,src/assets/**"
+          /d:sonar.coverage.exclusions="src/**,backend/Program.cs,backend/Controllers/**,backend/DTOs/**,backend/Data/**,backend/Models/**,backend/Interfaces/**,backend/Repositories/**,backend/Services/AuthService.cs,backend/Services/PasswordService.cs"
+          /d:sonar.cs.opencover.reportsPaths="TestResults/**/coverage.opencover.xml"
+          /d:sonar.cs.vstest.reportsPaths="TestResults/*.trx"
+          /d:sonar.cs.roslyn.ignoreIssues=true
+
+      - name: Frontend dependencies (para analizar Vue/TypeScript)
+        if: steps.detect.outputs.backend == 'true' && steps.detect.outputs.frontend == 'true'
+        run: npm ci
+
+      - name: Build
+        if: steps.detect.outputs.backend == 'true'
+        run: |
+          if [ "${{ steps.detect.outputs.tests }}" = "true" ]; then
+            dotnet build $TEST_PROJECT -c Release -p:RoslynSarif=false
+          else
+            dotnet build $BACKEND_PROJECT -c Release -p:RoslynSarif=false
+          fi
+
+      - name: Test + coverage
+        if: steps.detect.outputs.backend == 'true' && steps.detect.outputs.tests == 'true'
+        run: >
+          dotnet test $TEST_PROJECT --no-build -c Release
+          --settings $RUNSETTINGS
+          --collect:"XPlat Code Coverage"
+          --results-directory TestResults
+          --logger "trx;LogFileName=results.trx"
+
+      - name: Sonar end
+        if: steps.detect.outputs.backend == 'true' && (success() || failure())
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"
