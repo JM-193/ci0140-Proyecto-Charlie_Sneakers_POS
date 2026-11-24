@@ -16,9 +16,9 @@ name: SonarQube
 
 on:
   push:
-    branches: ['main', 'dev']
+    branches: ['main']
   pull_request:
-    types: [opened, synchronize, reopened]
+    branches: ['main']
   workflow_dispatch:
 
 jobs:
@@ -78,18 +78,12 @@ jobs:
       - name: Sonar begin
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
         run: >
           dotnet sonarscanner begin
-          /k:"${{ vars.SONAR_PROJECT_KEY }}"
-          /o:"${{ vars.SONAR_ORGANIZATION }}"
-          /d:sonar.host.url="https://sonarcloud.io"
-          /d:sonar.token="$SONAR_TOKEN"
-          /d:sonar.scanner.scanAll=true
-          /d:sonar.exclusions="**/bin/**,**/obj/**,**/node_modules/**,**/dist/**,**/coverage/**,**/assets/**"
-          /d:sonar.coverage.exclusions="backend/CharliesSneakersPOS.Api/**,backend/CharliesSneakersPOS.Infrastructure/**,src/**,frontend/**"
-          /d:sonar.cs.opencover.reportsPaths="TestResults/**/coverage.opencover.xml"
-          /d:sonar.cs.vstest.reportsPaths="TestResults/*.trx"
-          /d:sonar.cs.roslyn.ignoreIssues=true
+          /k:"$SONAR_PROJECT_KEY"
+          /o:"$SONAR_ORGANIZATION"
 
       - name: Build
         run: dotnet build $SOLUTION -c Release -p:RoslynSarif=false
