@@ -136,12 +136,8 @@ jobs:
           MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
         ports:
           - 1433:1433
-        options: >-
-          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P $MSSQL_SA_PASSWORD -Q 'SELECT 1' -b -o /dev/null"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 12
-          --health-start-period 20s
+        # Sin health check en options: la espera se hace en el paso
+        # "Wait for SQL Server", que muestra el error real si no responde.
     steps:
       - name: Check SQL Server secret
         env:
@@ -165,6 +161,32 @@ jobs:
 
       - name: Build
         run: dotnet build $INTEGRATION_PROJECT --no-restore -c Release -p:RoslynSarif=false
+
+      # La contraseña va en SQLCMDPASSWORD (variable de entorno), no en la línea
+      # de comandos, para que ningún carácter especial rompa el comando.
+      - name: Wait for SQL Server
+        env:
+          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+          MSSQL_CONTAINER: ${{ job.services.mssql.id }}
+        run: |
+          SQLCMD=$(docker exec "$MSSQL_CONTAINER" sh -c \
+            'for p in /opt/mssql-tools18/bin/sqlcmd /opt/mssql-tools/bin/sqlcmd; do [ -x "$p" ] && echo "$p" && break; done')
+          if [ -z "$SQLCMD" ]; then
+            echo "::error::No se encontró sqlcmd dentro de la imagen de SQL Server."
+            exit 1
+          fi
+          for attempt in $(seq 1 30); do
+            if docker exec -e SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" "$MSSQL_CONTAINER" \
+                "$SQLCMD" -C -S localhost -U sa -Q "SELECT 1" -b > sqlcmd.log 2>&1; then
+              echo "SQL Server listo (intento $attempt)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "--- Salida de sqlcmd ---"; cat sqlcmd.log
+          echo "--- Últimas líneas del log de SQL Server ---"; docker logs --tail 30 "$MSSQL_CONTAINER"
+          echo "::error::SQL Server no respondió a tiempo."
+          exit 1
 
       - name: Integration tests (SQL Server)
         env:
