@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CharliesSneakersPOS.Domain\CharliesSneakersPOS.Domain.csproj" />
+    <ProjectReference Include="..\CharliesSneakersPOS.Infrastructure\CharliesSneakersPOS.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
