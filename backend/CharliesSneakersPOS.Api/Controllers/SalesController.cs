@@ -5,6 +5,7 @@ using CharliesSneakersPOS.Domain.Payments;
 using CharliesSneakersPOS.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 
 namespace CharliesSneakersPOS.Api.Controllers;
 
@@ -72,6 +73,30 @@ public sealed class SalesController : ControllerBase
         catch (ArgumentException ex)
         {
             return BadRequest(new { error = ex.Message });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new
+            {
+                error = "The product was modified by another sale."
+            });
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is SqlException
+                { Number: 1205 or 3960 or 2601 or 2627 })
+        {
+            return Conflict(new
+            {
+                error = "The sale conflicts with another operation."
+            });
+        }
+        catch (SqlException ex)
+            when (ex.Number is 1205 or 3960 or 2601 or 2627)
+        {
+            return Conflict(new
+            {
+                error = "The sale conflicts with another operation."
+            });
         }
         catch (InvalidOperationException ex)
         {

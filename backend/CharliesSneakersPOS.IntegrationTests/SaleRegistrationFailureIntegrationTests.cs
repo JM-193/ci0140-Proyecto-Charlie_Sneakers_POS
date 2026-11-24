@@ -4,6 +4,7 @@ using CharliesSneakersPOS.Domain.Payments;
 using CharliesSneakersPOS.Infrastructure.Persistence;
 using CharliesSneakersPOS.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 using Xunit;
 
 namespace CharliesSneakersPOS.IntegrationTests;
@@ -141,6 +142,96 @@ public class SaleRegistrationFailureIntegrationTests
         sale.AddItem(product, quantity);
         return sale;
     }
+
+
+    [Fact]
+    [Trait("Category", "SqlServerIntegration")]
+    public async Task ConcurrentSales_CannotOversellLastUnit()
+    {
+        await WithTemporaryDatabaseAsync(async options =>
+        {
+            // Solo queda una unidad en SQL Server.
+            var (productId, cashSessionId) =
+                await SeedDatabaseAsync(options, stock: 1);
+
+            var start = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            async Task<bool> AttemptSaleAsync()
+            {
+                await start.Task;
+
+                await using var db = new AppDbContext(options);
+
+                var sale = CreateSale(
+                    productId,
+                    quantity: 1,
+                    knownStock: 1);
+
+                var service = new SaleRegistrationService(db);
+
+                try
+                {
+                    await service.RegisterAsync(
+                        Guid.NewGuid(),
+                        cashSessionId,
+                        sale,
+                        CreatePayments(sale));
+
+                    return true;
+                }
+                catch (InvalidOperationException)
+                {
+                    return false;
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    return false;
+                }
+                catch (DbUpdateException ex)
+                    when (ex.InnerException is SqlException
+                        { Number: 1205 or 3960 })
+                {
+                    return false;
+                }
+                catch (SqlException ex)
+                    when (ex.Number is 1205 or 3960)
+                {
+                    return false;
+                }
+            }
+
+            // Las dos operaciones comienzan juntas.
+            var firstSale = AttemptSaleAsync();
+            var secondSale = AttemptSaleAsync();
+
+            start.SetResult(true);
+
+            var results = await Task.WhenAll(
+                firstSale,
+                secondSale);
+
+            // Solo una venta puede completarse.
+            Assert.Equal(1, results.Count(success => success));
+
+            await using var verification =
+                new AppDbContext(options);
+
+            var product = await verification.ProductVariants
+                .SingleAsync(p => p.Id == productId);
+
+            Assert.Equal(0, product.Stock);
+
+            Assert.Equal(
+                1,
+                await verification.Sales.CountAsync());
+
+            Assert.Equal(
+                1,
+                await verification.SalePayments.CountAsync());
+        });
+    }
+
 
     private static Payment[] CreatePayments(Sale sale)
     {
