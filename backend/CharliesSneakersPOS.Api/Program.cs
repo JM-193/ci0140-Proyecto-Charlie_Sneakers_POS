@@ -1,3 +1,4 @@
+using CharliesSneakersPOS.Api.Filters;
 using CharliesSneakersPOS.Domain.Services;
 using CharliesSneakersPOS.Infrastructure;
 
@@ -10,6 +11,8 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<CashSessionService>();
+builder.Services.AddScoped<CashClosingService>();
+builder.Services.AddScoped<CashExceptionFilter>();
 
 var app = builder.Build();
 
