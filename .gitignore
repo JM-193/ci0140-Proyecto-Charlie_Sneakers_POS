@@ -157,6 +157,17 @@ vite.config.ts.timestamp-*
 .nx/migrate-runs
 
 # .NET
+**/bin/
+**/obj/
+.vs/
+**/TestResults/
+
+# Frontend
+**/node_modules/
+**/dist/
+
+# Coverage
+**/coverage/
 bin/
 obj/
 .vs/
