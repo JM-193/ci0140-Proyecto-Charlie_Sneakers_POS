@@ -1,0 +1,6 @@
+@CharliesSneakersPOS.Api_HostAddress = http://localhost:5274
+
+GET {{CharliesSneakersPOS.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

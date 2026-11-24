@@ -1,0 +1,12 @@
+C:\Users\Alexander\Desktop\ci0140-Proyecto-Charlie_Sneakers_POS\backend\CharliesSneakersPOS.Domain\bin\Debug\net10.0\CharliesSneakersPOS.Domain.deps.json
+C:\Users\Alexander\Desktop\ci0140-Proyecto-Charlie_Sneakers_POS\backend\CharliesSneakersPOS.Domain\bin\Debug\net10.0\CharliesSneakersPOS.Domain.dll
+C:\Users\Alexander\Desktop\ci0140-Proyecto-Charlie_Sneakers_POS\backend\CharliesSneakersPOS.Domain\bin\Debug\net10.0\CharliesSneakersPOS.Domain.pdb
+C:\Users\Alexander\Desktop\ci0140-Proyecto-Charlie_Sneakers_POS\backend\CharliesSneakersPOS.Domain\obj\Debug\net10.0\CharliesSneakersPOS.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Alexander\Desktop\ci0140-Proyecto-Charlie_Sneakers_POS\backend\CharliesSneakersPOS.Domain\obj\Debug\net10.0\CharliesSneakersPOS.Domain.AssemblyInfoInputs.cache
+C:\Users\Alexander\Desktop\ci0140-Proyecto-Charlie_Sneakers_POS\backend\CharliesSneakersPOS.Domain\obj\Debug\net10.0\CharliesSneakersPOS.Domain.AssemblyInfo.cs
+C:\Users\Alexander\Desktop\ci0140-Proyecto-Charlie_Sneakers_POS\backend\CharliesSneakersPOS.Domain\obj\Debug\net10.0\CharliesSneakersPOS.Domain.csproj.CoreCompileInputs.cache
+C:\Users\Alexander\Desktop\ci0140-Proyecto-Charlie_Sneakers_POS\backend\CharliesSneakersPOS.Domain\obj\Debug\net10.0\CharliesSneakersPOS.Domain.sourcelink.json
+C:\Users\Alexander\Desktop\ci0140-Proyecto-Charlie_Sneakers_POS\backend\CharliesSneakersPOS.Domain\obj\Debug\net10.0\CharliesSneakersPOS.Domain.dll
+C:\Users\Alexander\Desktop\ci0140-Proyecto-Charlie_Sneakers_POS\backend\CharliesSneakersPOS.Domain\obj\Debug\net10.0\refint\CharliesSneakersPOS.Domain.dll
+C:\Users\Alexander\Desktop\ci0140-Proyecto-Charlie_Sneakers_POS\backend\CharliesSneakersPOS.Domain\obj\Debug\net10.0\CharliesSneakersPOS.Domain.pdb
+C:\Users\Alexander\Desktop\ci0140-Proyecto-Charlie_Sneakers_POS\backend\CharliesSneakersPOS.Domain\obj\Debug\net10.0\ref\CharliesSneakersPOS.Domain.dll
