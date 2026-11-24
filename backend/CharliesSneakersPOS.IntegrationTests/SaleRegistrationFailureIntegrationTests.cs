@@ -225,4 +225,99 @@ public class SaleRegistrationFailureIntegrationTests
             await cleanup.Database.EnsureDeletedAsync();
         }
     }
+
+    [Fact]
+    [Trait("Category", "SqlServerIntegration")]
+    public async Task RejectsClosedCashSession()
+    {
+        await WithTemporaryDatabaseAsync(async options =>
+        {
+            var (productId, cashSessionId) =
+                await SeedDatabaseAsync(options, stock: 3);
+
+            // Simular una caja cerrada en SQL Server.
+            await using (var setup = new AppDbContext(options))
+            {
+                var affected = await setup.CashSessions
+                    .Where(s => s.Id == cashSessionId)
+                    .ExecuteUpdateAsync(setters =>
+                        setters.SetProperty(
+                            s => s.Status,
+                            CashSessionStatus.Closed));
+
+                Assert.Equal(1, affected);
+            }
+
+            var sale = CreateSale(productId);
+
+            await using (var db = new AppDbContext(options))
+            {
+                var service = new SaleRegistrationService(db);
+
+                await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => service.RegisterAsync(
+                        Guid.NewGuid(),
+                        cashSessionId,
+                        sale,
+                        CreatePayments(sale)));
+            }
+
+            Assert.False(sale.IsCompleted);
+
+            // La venta no debe guardarse ni descontar stock.
+            await AssertPersistenceAsync(
+                options,
+                productId,
+                expectedStock: 3,
+                expectedSales: 0);
+        });
+    }
+
+
+    [Fact]
+    [Trait("Category", "SqlServerIntegration")]
+    public async Task RejectsSaleWhenProductPriceChanged()
+    {
+        await WithTemporaryDatabaseAsync(async options =>
+        {
+            var (productId, cashSessionId) =
+                await SeedDatabaseAsync(options, stock: 3);
+
+            // El carrito conserva el precio anterior: 10000.
+            var sale = CreateSale(productId);
+
+            // El precio actual en SQL Server cambia a 11000.
+            await using (var setup = new AppDbContext(options))
+            {
+                var affected = await setup.ProductVariants
+                    .Where(p => p.Id == productId)
+                    .ExecuteUpdateAsync(setters =>
+                        setters.SetProperty(
+                            p => p.UnitPrice,
+                            11000m));
+
+                Assert.Equal(1, affected);
+            }
+
+            await using (var db = new AppDbContext(options))
+            {
+                var service = new SaleRegistrationService(db);
+
+                await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => service.RegisterAsync(
+                        Guid.NewGuid(),
+                        cashSessionId,
+                        sale,
+                        CreatePayments(sale)));
+            }
+
+            Assert.False(sale.IsCompleted);
+
+            await AssertPersistenceAsync(
+                options,
+                productId,
+                expectedStock: 3,
+                expectedSales: 0);
+        });
+    }
 }
