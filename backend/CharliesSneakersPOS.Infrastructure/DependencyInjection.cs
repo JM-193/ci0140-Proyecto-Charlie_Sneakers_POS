@@ -17,7 +17,7 @@ public static class DependencyInjection
         services.AddScoped<EfCashSessionRepository>();
         services.AddScoped<ICashSessionRepository>(sp => sp.GetRequiredService<EfCashSessionRepository>());
         services.AddScoped<ICashSessionStatus>(sp => sp.GetRequiredService<EfCashSessionRepository>());
-
+        services.AddScoped<SaleRegistrationService>();
         return services;
     }
 }
