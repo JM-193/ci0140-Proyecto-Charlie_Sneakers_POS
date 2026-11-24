@@ -63,7 +63,7 @@ jobs:
       - name: Frontend dependencies (para analizar Vue/TypeScript)
         if: steps.detect.outputs.dir != ''
         working-directory: ${{ steps.detect.outputs.dir }}
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Cache SonarQube Cloud packages
         uses: actions/cache@v4
