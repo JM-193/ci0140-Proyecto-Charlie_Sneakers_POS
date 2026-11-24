@@ -1,0 +1,281 @@
+/* Palette and base styles taken from the seg_fault frontend (src/assets/main.css).
+   Touch screen (RNF-10): controls are at least 48px high, nothing depends on hover,
+   and text on coloured backgrounds keeps a contrast ratio of 4.5:1 or more. */
+:root {
+  --primary-color: #ff6b35;
+  --primary-color-hover: #9f4f22;
+  --main-text-color: #333;
+  --secondary-text-color: #666;
+  --background-color: #f9f9f9;
+  --card-and-section-background: #fff;
+
+  --border-color: #ddd;
+  --success-color: #1e6b34;
+  --success-background: #e7f4ea;
+  --danger-color: #a1261b;
+  --danger-background: #fdecea;
+  --info-background: #fff4ee;
+  --touch-size: 48px;
+  --radius: 8px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--main-text-color);
+  background: var(--background-color);
+  min-height: 100vh;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+#app > main {
+  flex: 1;
+  padding: 1.25rem;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin-bottom: 1rem;
+}
+
+h2 {
+  font-size: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+/* HEADER (same orange header as seg_fault) */
+.app-header {
+  background: var(--primary-color);
+  color: var(--card-and-section-background);
+  padding: 0.5rem 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.logo-img {
+  height: 52px;
+  width: auto;
+  display: block;
+}
+
+.brand-name {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1f1f1f;
+}
+
+.app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.app-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-size);
+  padding: 0 1rem;
+  border-radius: var(--radius);
+  color: #1f1f1f;
+  font-weight: 700;
+  text-decoration: none;
+  border: 2px solid transparent;
+}
+
+.app-nav a.router-link-active {
+  background: var(--card-and-section-background);
+  border-color: #1f1f1f;
+}
+
+.cash-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 40px;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+  font-weight: 700;
+  background: var(--card-and-section-background);
+}
+
+.cash-status.open {
+  color: var(--success-color);
+}
+
+.cash-status.closed {
+  color: var(--danger-color);
+}
+
+/* CARDS AND LAYOUT */
+.card {
+  background: var(--card-and-section-background);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.narrow {
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* BUTTONS */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: var(--touch-size);
+  min-width: var(--touch-size);
+  padding: 0 1.1rem;
+  border-radius: var(--radius);
+  border: 2px solid var(--primary-color-hover);
+  background: var(--card-and-section-background);
+  color: var(--primary-color-hover);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  touch-action: manipulation;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:focus-visible,
+.input:focus-visible {
+  outline: 3px solid #1f1f1f;
+  outline-offset: 2px;
+}
+
+.btn-primary {
+  background: var(--primary-color-hover);
+  color: #fff;
+}
+
+.btn-large {
+  min-height: 64px;
+  font-size: 1.2rem;
+  width: 100%;
+}
+
+.btn-danger {
+  border-color: var(--danger-color);
+  color: var(--danger-color);
+}
+
+.btn-selected {
+  background: var(--primary-color);
+  border-color: #1f1f1f;
+  color: #1f1f1f;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* FORMS */
+label {
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.input {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 1rem;
+  font: inherit;
+  font-size: 1.2rem;
+  border: 2px solid #999;
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--main-text-color);
+}
+
+/* MESSAGES */
+.alert {
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  font-weight: 700;
+  border-left: 6px solid;
+}
+
+.alert-error {
+  background: var(--danger-background);
+  color: var(--danger-color);
+}
+
+.alert-success {
+  background: var(--success-background);
+  color: var(--success-color);
+}
+
+.alert-info {
+  background: var(--info-background);
+  color: var(--primary-color-hover);
+}
+
+/* AMOUNTS */
+.amount-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+}
+
+.amount-row.total {
+  font-size: 1.45rem;
+  font-weight: 700;
+  border-top: 2px solid var(--border-color);
+  margin-top: 0.35rem;
+  padding-top: 0.6rem;
+}
+
+.muted {
+  color: var(--secondary-text-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:active {
+    transform: none;
+  }
+}

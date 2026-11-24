@@ -8,6 +8,8 @@ RUNSETTINGS  := backend/CharliesSneakersPOS.Tests/coverage.runsettings
 CONFIG       ?= Debug
 MIN_COVERAGE ?= 90
 INTEGRATION_PROJECT := backend/CharliesSneakersPOS.IntegrationTests/CharliesSneakersPOS.IntegrationTests.csproj
+FRONTEND_DIR := frontend
+SEED_SCRIPT  := database/seed-demo.sql
 
 # SQL Server LocalDB (Windows): instancia que usan las pruebas de integracion.
 # Base aislada para ejecutar la API desde make; no modifica CharliesSneakersPOS.
@@ -19,7 +21,8 @@ DB_CONNECTION = Server=(localdb)\$(LOCALDB_INSTANCE);Database=$(DB_NAME);Trusted
 
 .PHONY: help restore build rebuild run watch test lint format format-check \
         coverage coverage-open tools clean ef-add ef-update ef-remove ef-list \
-        db-start db-status db-migrate db-test test-all run-db
+        db-start db-status db-migrate db-test test-all run-db db-seed \
+        front-install front-dev front-test front-lint front-build
 
 help: ## Muestra esta ayuda
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -63,6 +66,13 @@ db-migrate: db-start ## Crea/actualiza las tablas de la base aislada DB_NAME
 run-db: db-migrate ## Inicia la API contra la base aislada DB_NAME
 	ASPNETCORE_ENVIRONMENT=Development ConnectionStrings__Default='$(DB_CONNECTION)' \
 		dotnet run --project $(API_PROJECT)
+
+db-seed: db-start ## Inserta productos de demostracion en DB_NAME (idempotente, requiere sqlcmd)
+	@command -v sqlcmd >/dev/null 2>&1 || { \
+		echo "Error: falta sqlcmd. Instalarlo con: winget install Microsoft.Sqlcmd"; \
+		echo "(despues abrir una terminal nueva para que quede en el PATH)"; exit 1; }
+	@echo "Sembrando $(SEED_SCRIPT) en $(DB_NAME) (requiere make db-migrate previo)..."
+	sqlcmd -S '(localdb)\$(LOCALDB_INSTANCE)' -d '$(DB_NAME)' -E -b -i $(SEED_SCRIPT)
 
 db-test: db-start ## Ejecuta pruebas de integracion con bases temporales LocalDB
 	dotnet test $(INTEGRATION_PROJECT) -c $(CONFIG)
@@ -122,3 +132,24 @@ ef-remove: ## Elimina la ultima migracion (si no esta aplicada)
 ef-list: ## Lista las migraciones
 	ASPNETCORE_ENVIRONMENT=Development dotnet ef migrations list \
 		--project $(INFRA_PROJECT) --startup-project $(API_PROJECT)
+
+# --- Frontend Vue + TypeScript (carpeta frontend/, requiere Node) ---
+# En Windows se entra a la carpeta con la unidad en mayuscula (C:/...): si la
+# terminal la reporta en minuscula (p. ej. la de VS Code), Vitest falla con
+# "failed to find the runner".
+FRONT_CD = cd $(FRONTEND_DIR) && { [ "$(OS)" != "Windows_NT" ] || cd "$$(pwd -W | sed "s/^./\U&/")"; }
+
+front-install: ## Instala dependencias del frontend (npm ci, sin scripts)
+	$(FRONT_CD) && npm ci --ignore-scripts
+
+front-dev: ## Inicia el frontend en http://localhost:5173 (junto con make run-db)
+	$(FRONT_CD) && npm run dev
+
+front-test: ## Ejecuta las pruebas unitarias del frontend (Vitest)
+	$(FRONT_CD) && npm run test:unit -- --run
+
+front-lint: ## Lint del frontend igual que el CI (oxlint + ESLint, sin --fix)
+	$(FRONT_CD) && npm run lint:ci
+
+front-build: ## Type-check y build de produccion del frontend
+	$(FRONT_CD) && npm run build

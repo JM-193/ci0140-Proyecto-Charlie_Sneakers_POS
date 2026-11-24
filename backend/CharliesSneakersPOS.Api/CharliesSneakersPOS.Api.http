@@ -20,3 +20,13 @@ POST {{CharliesSneakersPOS.Api_HostAddress}}/api/cash-sessions/{{cashSessionId}}
 Content-Type: application/json
 
 { "countedAmount": 80000 }
+
+### Totales en vivo sin persistir (HU-03 / HU-05)
+@productVariantId = 00000000-0000-0000-0000-000000000000
+POST {{CharliesSneakersPOS.Api_HostAddress}}/api/sales/preview
+Content-Type: application/json
+
+{
+  "items": [ { "productVariantId": "{{productVariantId}}", "quantity": 1 } ],
+  "payments": [ { "method": "Cash", "amount": 20000 } ]
+}

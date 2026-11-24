@@ -117,6 +117,95 @@ jobs:
             || { echo "::error::Cobertura de líneas ${LINE}% es menor que ${MIN_COVERAGE}%"; exit 1; }
 
   # ---------------------------------------------------------------------------
+  # Pruebas de integración contra SQL Server real (Docker). Sustituye a LocalDB,
+  # que no existe en ubuntu-latest. Cada prueba crea y borra su base temporal.
+  # Requiere el secret MSSQL_SA_PASSWORD (Settings > Secrets and variables >
+  # Actions): mínimo 8 caracteres con mayúsculas, minúsculas, números y algún
+  # símbolo; sin espacios, comillas ni ';'.
+  # ---------------------------------------------------------------------------
+  integration:
+    name: Backend integration (SQL Server)
+    runs-on: ubuntu-latest
+    env:
+      INTEGRATION_PROJECT: backend/CharliesSneakersPOS.IntegrationTests/CharliesSneakersPOS.IntegrationTests.csproj
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+        ports:
+          - 1433:1433
+        # Sin health check en options: la espera se hace en el paso
+        # "Wait for SQL Server", que muestra el error real si no responde.
+    steps:
+      - name: Check SQL Server secret
+        env:
+          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+        run: |
+          if [ -z "$MSSQL_SA_PASSWORD" ]; then
+            echo "::error::Falta el secret MSSQL_SA_PASSWORD para las pruebas de integración."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore $INTEGRATION_PROJECT
+
+      - name: Build
+        run: dotnet build $INTEGRATION_PROJECT --no-restore -c Release -p:RoslynSarif=false
+
+      # La contraseña va en SQLCMDPASSWORD (variable de entorno), no en la línea
+      # de comandos, para que ningún carácter especial rompa el comando.
+      - name: Wait for SQL Server
+        env:
+          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+          MSSQL_CONTAINER: ${{ job.services.mssql.id }}
+        run: |
+          SQLCMD=$(docker exec "$MSSQL_CONTAINER" sh -c \
+            'for p in /opt/mssql-tools18/bin/sqlcmd /opt/mssql-tools/bin/sqlcmd; do [ -x "$p" ] && echo "$p" && break; done')
+          if [ -z "$SQLCMD" ]; then
+            echo "::error::No se encontró sqlcmd dentro de la imagen de SQL Server."
+            exit 1
+          fi
+          for attempt in $(seq 1 30); do
+            if docker exec -e SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" "$MSSQL_CONTAINER" \
+                "$SQLCMD" -C -S localhost -U sa -Q "SELECT 1" -b > sqlcmd.log 2>&1; then
+              echo "SQL Server listo (intento $attempt)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "--- Salida de sqlcmd ---"; cat sqlcmd.log
+          echo "--- Últimas líneas del log de SQL Server ---"; docker logs --tail 30 "$MSSQL_CONTAINER"
+          echo "::error::SQL Server no respondió a tiempo."
+          exit 1
+
+      - name: Integration tests (SQL Server)
+        env:
+          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+        run: |
+          export TEST_SQL_CONNECTION="Server=localhost,1433;User ID=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True"
+          dotnet test $INTEGRATION_PROJECT --no-build -c Release \
+            --results-directory TestResults \
+            --logger "trx;LogFileName=integration.trx"
+
+      - name: Upload integration results
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-reports
+          path: TestResults/**/*.trx
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
   # Frontend Vue + TypeScript: lint, type-check/build y pruebas
   # ---------------------------------------------------------------------------
   frontend:

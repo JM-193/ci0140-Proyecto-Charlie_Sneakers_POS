@@ -104,6 +104,97 @@ public sealed class SalesController : ControllerBase
         }
     }
 
+    // HU-03 / HU-05: recalculates totals, remaining balance and change with
+    // the same sale-building logic as Register, without persisting anything.
+    [HttpPost("preview")]
+    public async Task<ActionResult<PreviewSaleResponse>> Preview(
+        [FromBody] PreviewSaleRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null ||
+            request.Items is null ||
+            request.Items.Count is 0 or > 50 ||
+            request.Payments?.Count > 10)
+        {
+            return BadRequest(new PreviewSaleError(
+                "Invalid sale preview request.",
+                PreviewSaleErrorCodes.InvalidRequest));
+        }
+
+        Sale sale;
+
+        try
+        {
+            sale = await BuildSaleAsync(
+                request.Items,
+                cancellationToken);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new PreviewSaleError(
+                ex.Message,
+                PreviewSaleErrorCodes.ProductNotFound));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new PreviewSaleError(
+                ex.Message,
+                PreviewSaleErrorCodes.InvalidQuantity));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new PreviewSaleError(
+                ex.Message,
+                PreviewSaleErrorCodes.InsufficientStock));
+        }
+
+        return PreviewPayments(sale, request.Payments);
+    }
+
+    private ActionResult<PreviewSaleResponse> PreviewPayments(
+        Sale sale,
+        IReadOnlyList<SalePaymentRequest>? requestedPayments)
+    {
+        var totals = sale.Totals;
+
+        if (requestedPayments is null || requestedPayments.Count == 0)
+        {
+            return Ok(new PreviewSaleResponse(
+                totals.Subtotal,
+                totals.Tax,
+                totals.Total,
+                0m,
+                totals.Total,
+                0m));
+        }
+
+        try
+        {
+            var summary = sale.PreviewPayments(
+                BuildPayments(requestedPayments));
+
+            return Ok(new PreviewSaleResponse(
+                totals.Subtotal,
+                totals.Tax,
+                totals.Total,
+                summary.TotalReceived,
+                summary.Remaining,
+                summary.Change));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new PreviewSaleError(
+                ex.Message,
+                PreviewSaleErrorCodes.InvalidPayment));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new PreviewSaleError(
+                ex.Message,
+                PreviewSaleErrorCodes.PaymentNotAllowed));
+        }
+    }
+
     private async Task<Sale> BuildSaleAsync(
         IReadOnlyList<SaleProductRequest> items,
         CancellationToken cancellationToken)

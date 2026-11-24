@@ -12,8 +12,8 @@ using Xunit;
 namespace CharliesSneakersPOS.IntegrationTests;
 
 // Pruebas de la Caja (HU-09, HU-10) contra SQL Server real con bases temporales.
-// Servidor: LocalDB por defecto; se puede cambiar con la variable de entorno
-// TEST_SQL_SERVER (por ejemplo "localhost\SQLEXPRESS").
+// Servidor: LocalDB por defecto; se puede cambiar con TEST_SQL_SERVER
+// (por ejemplo "localhost\SQLEXPRESS") o TEST_SQL_CONNECTION (ver TestSqlServer).
 public class CashSessionsIntegrationTests
 {
     private const string BaseUrl = "/api/cash-sessions";
@@ -215,11 +215,8 @@ public class CashSessionsIntegrationTests
 
         public static async Task<TestDatabase> CreateAsync(string prefix)
         {
-            var server = Environment.GetEnvironmentVariable("TEST_SQL_SERVER")
-                ?? @"(localdb)\MSSQLLocalDB";
             var name = $"CharliesSneakersPOS_{prefix}_{Guid.NewGuid():N}";
-            var database = new TestDatabase(
-                $"Server={server};Database={name};Trusted_Connection=True;TrustServerCertificate=True");
+            var database = new TestDatabase(TestSqlServer.ConnectionString(name));
 
             await using var context = database.CreateContext();
             await context.Database.MigrateAsync();

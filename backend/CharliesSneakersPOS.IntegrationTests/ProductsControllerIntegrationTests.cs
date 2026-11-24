@@ -19,7 +19,7 @@ public class ProductsControllerIntegrationTests
             $"CharliesSneakersPOS_Test_{Guid.NewGuid():N}";
 
         var connectionString =
-            $@"Server=(localdb)\MSSQLLocalDB;Database={databaseName};Trusted_Connection=True;TrustServerCertificate=True";
+            TestSqlServer.ConnectionString(databaseName);
 
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseSqlServer(connectionString)
