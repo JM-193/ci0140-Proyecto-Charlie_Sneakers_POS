@@ -1,6 +1,7 @@
 
 using CharliesSneakersPOS.Api.Contracts;
 using CharliesSneakersPOS.Infrastructure.Persistence;
+using CharliesSneakersPOS.Infrastructure.Persistence.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,36 +25,16 @@ public sealed class ProductsController : ControllerBase
         [FromQuery] string? color,
         CancellationToken cancellationToken)
     {
-        if (q?.Length > 100 ||
-            size?.Length > 30 ||
-            color?.Length > 80)
+        if (HasInvalidSearchParameters(q, size, color))
         {
             return BadRequest("Search parameters are too long.");
         }
 
-        var products = _db.ProductVariants.AsNoTracking();
-
-        if (!string.IsNullOrWhiteSpace(q))
-        {
-            var term = q.Trim();
-
-            products = products.Where(p =>
-                p.Name.Contains(term) ||
-                p.Sku.Contains(term) ||
-                (p.Barcode != null && p.Barcode.Contains(term)));
-        }
-
-        if (!string.IsNullOrWhiteSpace(size))
-        {
-            var selectedSize = size.Trim();
-            products = products.Where(p => p.Size == selectedSize);
-        }
-
-        if (!string.IsNullOrWhiteSpace(color))
-        {
-            var selectedColor = color.Trim();
-            products = products.Where(p => p.Color == selectedColor);
-        }
+        var products = ApplyFilters(
+            _db.ProductVariants.AsNoTracking(),
+            q,
+            size,
+            color);
 
         var result = await products
             .OrderBy(p => p.Name)
@@ -71,5 +52,52 @@ public sealed class ProductsController : ControllerBase
             .ToListAsync(cancellationToken);
 
         return Ok(result);
+    }
+
+    // Validate search parameter lengths.
+    private static bool HasInvalidSearchParameters(
+        string? q,
+        string? size,
+        string? color)
+    {
+        return q?.Length > 100 ||
+               size?.Length > 30 ||
+               color?.Length > 80;
+    }
+
+    // Build the query using the optional filters.
+    private static IQueryable<ProductVariantRecord> ApplyFilters(
+        IQueryable<ProductVariantRecord> products,
+        string? q,
+        string? size,
+        string? color)
+    {
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var term = q.Trim();
+
+            products = products.Where(p =>
+                p.Name.Contains(term) ||
+                p.Sku.Contains(term) ||
+                (p.Barcode != null && p.Barcode.Contains(term)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(size))
+        {
+            var selectedSize = size.Trim();
+
+            products = products.Where(p =>
+                p.Size == selectedSize);
+        }
+
+        if (!string.IsNullOrWhiteSpace(color))
+        {
+            var selectedColor = color.Trim();
+
+            products = products.Where(p =>
+                p.Color == selectedColor);
+        }
+
+        return products;
     }
 }
