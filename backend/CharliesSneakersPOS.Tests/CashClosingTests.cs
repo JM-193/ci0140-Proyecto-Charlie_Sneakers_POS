@@ -168,15 +168,4 @@ public class CashClosingTests
         sale.AddItem(product, 1);
         return sale;
     }
-
-    private sealed class FakeCashSalesProvider : ICashSalesProvider
-    {
-        private readonly decimal _netCashSales;
-
-        public FakeCashSalesProvider(decimal netCashSales) => _netCashSales = netCashSales;
-
-        public Task<decimal> GetNetCashSalesAsync(
-            Guid cashSessionId, CancellationToken cancellationToken = default)
-            => Task.FromResult(_netCashSales);
-    }
 }
