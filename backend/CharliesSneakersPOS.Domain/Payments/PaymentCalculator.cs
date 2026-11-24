@@ -9,8 +9,7 @@ public sealed class PaymentCalculator
     {
         ArgumentNullException.ThrowIfNull(payments);
 
-        if (total <= 0)
-            throw new ArgumentOutOfRangeException(nameof(total));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(total);
 
         decimal remaining = total;
         decimal received = 0m;

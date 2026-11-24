@@ -29,11 +29,8 @@ public sealed class ProductVariant
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Product name is required.");
 
-        if (unitPrice < 0)
-            throw new ArgumentOutOfRangeException(nameof(unitPrice));
-
-        if (stock < 0)
-            throw new ArgumentOutOfRangeException(nameof(stock));
+        ArgumentOutOfRangeException.ThrowIfNegative(unitPrice);
+        ArgumentOutOfRangeException.ThrowIfNegative(stock);
 
         Id = id;
         Sku = sku;
