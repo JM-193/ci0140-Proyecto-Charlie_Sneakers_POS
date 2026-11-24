@@ -18,6 +18,8 @@ public static class DependencyInjection
         services.AddScoped<ICashSessionRepository>(sp => sp.GetRequiredService<EfCashSessionRepository>());
         services.AddScoped<ICashSessionStatus>(sp => sp.GetRequiredService<EfCashSessionRepository>());
         services.AddScoped<SaleRegistrationService>();
+        services.AddScoped<ICashSalesProvider, EfCashSalesProvider>();
+        
         return services;
     }
 }
