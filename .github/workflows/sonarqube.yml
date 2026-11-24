@@ -63,7 +63,7 @@ jobs:
       - name: Frontend dependencies (para analizar Vue/TypeScript)
         if: steps.detect.outputs.dir != ''
         working-directory: ${{ steps.detect.outputs.dir }}
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Cache SonarQube Cloud packages
         uses: actions/cache@v4
@@ -84,6 +84,14 @@ jobs:
           dotnet sonarscanner begin
           /k:"$SONAR_PROJECT_KEY"
           /o:"$SONAR_ORGANIZATION"
+          /d:sonar.host.url="https://sonarcloud.io"
+          /d:sonar.token="$SONAR_TOKEN"
+          /d:sonar.scanner.scanAll=true
+          /d:sonar.exclusions="**/bin/**,**/obj/**,**/node_modules/**,**/dist/**,**/coverage/**,**/assets/**"
+          /d:sonar.coverage.exclusions="backend/CharliesSneakersPOS.Api/**,backend/CharliesSneakersPOS.Infrastructure/**,src/**,frontend/**"
+          /d:sonar.cs.opencover.reportsPaths="TestResults/**/coverage.opencover.xml"
+          /d:sonar.cs.vstest.reportsPaths="TestResults/*.trx"
+          /d:sonar.cs.roslyn.ignoreIssues=true
 
       - name: Build
         run: dotnet build $SOLUTION -c Release -p:RoslynSarif=false

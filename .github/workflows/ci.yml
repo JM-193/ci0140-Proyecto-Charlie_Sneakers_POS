@@ -144,7 +144,7 @@ jobs:
       - name: Install dependencies
         if: steps.detect.outputs.dir != ''
         working-directory: ${{ steps.detect.outputs.dir }}
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Lint (oxlint + ESLint)
         if: steps.detect.outputs.dir != ''
