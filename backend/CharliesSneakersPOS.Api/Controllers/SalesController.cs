@@ -83,7 +83,7 @@ public sealed class SalesController : ControllerBase
         }
         catch (DbUpdateException ex)
             when (ex.InnerException is SqlException
-                { Number: 1205 or 3960 or 2601 or 2627 })
+            { Number: 1205 or 3960 or 2601 or 2627 })
         {
             return Conflict(new
             {
