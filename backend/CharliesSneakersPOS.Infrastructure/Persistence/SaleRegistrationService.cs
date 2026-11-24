@@ -27,22 +27,11 @@ public sealed class SaleRegistrationService
         IEnumerable<Payment> payments,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(sale);
-        ArgumentNullException.ThrowIfNull(payments);
-
-        if (saleId == Guid.Empty)
-            throw new ArgumentException(
-                "A valid sale ID is required.",
-                nameof(saleId));
-
-        if (cashSessionId == Guid.Empty)
-            throw new ArgumentException(
-                "A valid cash session ID is required.",
-                nameof(cashSessionId));
-
-        if (sale.IsCompleted)
-            throw new InvalidOperationException(
-                "The sale has already been completed.");
+        ValidateRegistrationRequest(
+            saleId,
+            cashSessionId,
+            sale,
+            payments);
 
         var paymentList = payments.ToList();
         var summary = sale.PreviewPayments(paymentList);
@@ -149,4 +138,29 @@ public sealed class SaleRegistrationService
 
         return saleId;
     }
+
+    private static void ValidateRegistrationRequest(
+        Guid saleId,
+        Guid cashSessionId,
+        Sale sale,
+        IEnumerable<Payment> payments)
+    {
+        ArgumentNullException.ThrowIfNull(sale);
+        ArgumentNullException.ThrowIfNull(payments);
+
+        if (saleId == Guid.Empty)
+            throw new ArgumentException(
+                "A valid sale ID is required.",
+                nameof(saleId));
+
+        if (cashSessionId == Guid.Empty)
+            throw new ArgumentException(
+                "A valid cash session ID is required.",
+                nameof(cashSessionId));
+
+        if (sale.IsCompleted)
+            throw new InvalidOperationException(
+                "The sale has already been completed.");
+    }
+
 }
