@@ -25,4 +25,10 @@ public sealed class AppDbContext : DbContext
         modelBuilder.ApplyConfigurationsFromAssembly(
             typeof(AppDbContext).Assembly);
     }
+
+    public DbSet<SaleRecord> Sales => Set<SaleRecord>();
+
+    public DbSet<SaleItemRecord> SaleItems => Set<SaleItemRecord>();
+
+    public DbSet<SalePaymentRecord> SalePayments => Set<SalePaymentRecord>();
 }
