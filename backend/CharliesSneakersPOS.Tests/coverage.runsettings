@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Alcance de la medición de cobertura (M5.3, meta Fase 3: >= 90 % de líneas).
+  Se mide la lógica de negocio: el proyecto CharliesSneakersPOS.Domain
+  (entidades, servicios de venta/caja y cálculos de pagos).
+  Api (controladores/arranque) e Infrastructure (acceso a datos) quedan fuera;
+  esta exclusión debe declararse y justificarse en el informe.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>opencover,cobertura</Format>
+          <Include>[CharliesSneakersPOS.Domain]*</Include>
+          <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

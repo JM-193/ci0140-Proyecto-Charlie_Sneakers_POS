@@ -1,7 +1,7 @@
 <Project>
   <!--
     Configuración común para todos los proyectos .NET del repositorio
-    (backend/Backend.Api.csproj y tests/Backend.Tests).
+    (todos los proyectos de CharliesSneakersPOS.slnx).
 
     Herramienta de análisis estático #2: Roslyn / .NET Code Analysis.
     Los diagnósticos aparecen como warnings en cada `dotnet build` y además
