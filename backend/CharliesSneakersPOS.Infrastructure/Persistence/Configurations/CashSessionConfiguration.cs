@@ -12,6 +12,12 @@ internal sealed class CashSessionConfiguration : IEntityTypeConfiguration<CashSe
         builder.HasKey(s => s.Id);
         builder.Property(s => s.Id).ValueGeneratedNever();
         builder.Property(s => s.OpeningAmount).HasPrecision(18, 2);
+        builder.Property(s => s.ExpectedAmount).HasPrecision(18, 2);
+        builder.Property(s => s.CountedAmount).HasPrecision(18, 2);
+
+        // Control de concurrencia: evita cerrar dos veces la misma sesión en paralelo.
+        builder.Property<byte[]>("RowVersion").IsRowVersion();
+
         builder.Property(s => s.Status).HasConversion<string>().HasMaxLength(16);
         builder.Ignore(s => s.IsOpen);
 

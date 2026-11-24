@@ -63,28 +63,4 @@ public class CashSessionTests
     {
         Assert.Throws<ArgumentNullException>(() => new CashSessionService(null!));
     }
-
-    private sealed class FakeCashSessionRepository : ICashSessionRepository
-    {
-        public List<CashSession> Sessions { get; } = new();
-        public int SaveCount { get; private set; }
-
-        public Task<CashSession?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-            => Task.FromResult(Sessions.FirstOrDefault(s => s.Id == id));
-
-        public Task<CashSession?> GetOpenAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(Sessions.FirstOrDefault(s => s.IsOpen));
-
-        public Task AddAsync(CashSession session, CancellationToken cancellationToken = default)
-        {
-            Sessions.Add(session);
-            return Task.CompletedTask;
-        }
-
-        public Task SaveChangesAsync(CancellationToken cancellationToken = default)
-        {
-            SaveCount++;
-            return Task.CompletedTask;
-        }
-    }
 }
